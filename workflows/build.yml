@@ -1,0 +1,23 @@
+name: Build saver
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          xcodebuild -project RedPill.xcodeproj \
+            -configuration Release \
+            -alltargets \
+            ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO \
+            MACOSX_DEPLOYMENT_TARGET=10.15 \
+            CODE_SIGNING_ALLOWED=NO \
+            CONFIGURATION_BUILD_DIR="$PWD/out"
+      - name: Zip
+        run: cd out && zip -r RedPillOrange.saver.zip *.saver
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RedPillOrange
+          path: out/RedPillOrange.saver.zip
