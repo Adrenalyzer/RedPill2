@@ -14,6 +14,8 @@ jobs:
             ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO \
             MACOSX_DEPLOYMENT_TARGET=10.15 \
             CODE_SIGNING_ALLOWED=NO \
+            PRODUCT_NAME=RedPillOrange \
+            PRODUCT_BUNDLE_IDENTIFIER=com.adrenalyzer.redpillorange \
             CONFIGURATION_BUILD_DIR="$PWD/out"
       - name: Zip
         run: cd out && zip -r RedPillOrange.saver.zip *.saver
