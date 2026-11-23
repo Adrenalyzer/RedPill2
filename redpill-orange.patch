@@ -1,0 +1,112 @@
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+new file mode 100644
+index 0000000..f9daa36
+--- /dev/null
++++ b/.github/workflows/build.yml
+@@ -0,0 +1,23 @@
++name: Build saver
++on: [push, workflow_dispatch]
++
++jobs:
++  build:
++    runs-on: macos-latest
++    steps:
++      - uses: actions/checkout@v4
++      - name: Build
++        run: |
++          xcodebuild -project RedPill.xcodeproj \
++            -configuration Release \
++            -alltargets \
++            ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO \
++            MACOSX_DEPLOYMENT_TARGET=10.15 \
++            CODE_SIGNING_ALLOWED=NO \
++            CONFIGURATION_BUILD_DIR="$PWD/out"
++      - name: Zip
++        run: cd out && zip -r RedPillOrange.saver.zip *.saver
++      - uses: actions/upload-artifact@v4
++        with:
++          name: RedPillOrange
++          path: out/RedPillOrange.saver.zip
+diff --git a/MatrixStrip.m b/MatrixStrip.m
+index 08f6bde..d3c62b1 100644
+--- a/MatrixStrip.m
++++ b/MatrixStrip.m
+@@ -226,11 +226,10 @@ int i;
+    maxi = cursorDrawing ? cursorPos : stripSize;
+    for (i=0; i < maxi; i++) {
+       for (c = 0; c < 4; c++) {
+-         // Some shade of green if cell is not empty
+-         colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : g;
+-         // Cells which are very bright are slightly whitened
+-         colorArray[16*i + 4*c + 0] = ((g > 0.7) && (cellState[i] != 0)) ? (g - 0.6) : 0.0;
+-         colorArray[16*i + 4*c + 2] = ((g > 0.7) && (cellState[i] != 0)) ? (g - 0.6) : 0.0;
++         // Orange (sampled from reference: 254,153,29 at full brightness)
++         colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : g;
++         colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : g * 0.60;
++         colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : g * 0.11;
+          // Transparent if cell is empty, otherwise opaque
+          colorArray[16*i + 4*c + 3] = (cellState[i] == 0) ? 0.0 : 1.0;
+       }
+@@ -251,13 +250,12 @@ int i;
+       cursorglow = 0.8;
+       for (i = maxi; i >= 0 && cursorglow > 0.2; i--) {
+       // If there's some cursor-imparted glow left, use it
+-         if (colorArray[16*i + 4*c + 1] < cursorglow) {
++         if (colorArray[16*i + 4*c + 0] < cursorglow) {
+             for (c = 0; c < 4; c++) {
+-               // Some shade of green if cell is not empty
+-               colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : cursorglow;
+-               // Cells which are very bright are slightly whitened
+-               colorArray[16*i + 4*c + 0] = ((cursorglow > 0.7) && (cellState[i] != 0)) ? (cursorglow - 0.6) : 0.0;
+-               colorArray[16*i + 4*c + 2] = ((cursorglow > 0.7) && (cellState[i] != 0)) ? (cursorglow - 0.6) : 0.0;
++               // Orange, same ratios as above
++               colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : cursorglow;
++               colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : cursorglow * 0.60;
++               colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : cursorglow * 0.11;
+                // Transparent if cell is empty, otherwise opaque
+                colorArray[16*i + 4*c + 3] = (cellState[i] == 0) ? 0.0 : 1.0;
+             }
+diff --git a/RedPill.xcodeproj/project.pbxproj b/RedPill.xcodeproj/project.pbxproj
+index 6811504..2dd3c62 100644
+--- a/RedPill.xcodeproj/project.pbxproj
++++ b/RedPill.xcodeproj/project.pbxproj
+@@ -330,8 +330,8 @@
+ 				INSTALL_PATH = "";
+ 				MACOSX_DEPLOYMENT_TARGET = 10.12;
+ 				"OTHER_CODE_SIGN_FLAGS[sdk=*]" = "--deep";
+-				PRODUCT_BUNDLE_IDENTIFIER = com.rdsroot.redpill;
+-				PRODUCT_NAME = RedPill;
++				PRODUCT_BUNDLE_IDENTIFIER = com.adrenalyzer.redpillorange;
++				PRODUCT_NAME = RedPillOrange;
+ 				PROVISIONING_PROFILE = "";
+ 				STRIP_INSTALLED_PRODUCT = YES;
+ 				WRAPPER_EXTENSION = saver;
+@@ -355,8 +355,8 @@
+ 				INSTALL_PATH = "";
+ 				MACOSX_DEPLOYMENT_TARGET = 10.12;
+ 				"OTHER_CODE_SIGN_FLAGS[sdk=*]" = "--deep";
+-				PRODUCT_BUNDLE_IDENTIFIER = com.rdsroot.redpill;
+-				PRODUCT_NAME = RedPill;
++				PRODUCT_BUNDLE_IDENTIFIER = com.adrenalyzer.redpillorange;
++				PRODUCT_NAME = RedPillOrange;
+ 				PROVISIONING_PROFILE = "";
+ 				STRIP_INSTALLED_PRODUCT = YES;
+ 				WRAPPER_EXTENSION = saver;
+@@ -397,7 +397,7 @@
+ 				INFOPLIST_FILE = Info.plist;
+ 				MACOSX_DEPLOYMENT_TARGET = 10.12;
+ 				ONLY_ACTIVE_ARCH = YES;
+-				PRODUCT_NAME = RedPill;
++				PRODUCT_NAME = RedPillOrange;
+ 				PROVISIONING_PROFILE = "ebd01f95-b72f-4577-9271-7cda0922b771";
+ 				SDKROOT = macosx;
+ 				WRAPPER_EXTENSION = saver;
+@@ -437,7 +437,7 @@
+ 				INFOPLIST_FILE = Info.plist;
+ 				MACOSX_DEPLOYMENT_TARGET = 10.12;
+ 				ONLY_ACTIVE_ARCH = NO;
+-				PRODUCT_NAME = RedPill;
++				PRODUCT_NAME = RedPillOrange;
+ 				PROVISIONING_PROFILE = "ebd01f95-b72f-4577-9271-7cda0922b771";
+ 				SDKROOT = macosx;
+ 				WRAPPER_EXTENSION = saver;
