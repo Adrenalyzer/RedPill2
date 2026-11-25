@@ -43,4 +43,8 @@ struct MatrixStripParams {
    GLfloat glyphR; // base glyph color, each 0.0 to 1.0 (default is green: 0, 1, 0)
    GLfloat glyphG;
    GLfloat glyphB;
+   GLfloat tipR; // color the brightest glyphs blend toward (default light green)
+   GLfloat tipG;
+   GLfloat tipB;
+   GLfloat hueDrift; // each strip's hue wanders up to this many degrees either side of the base color
 };

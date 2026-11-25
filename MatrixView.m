@@ -81,7 +81,15 @@ NSOpenGLPixelFormat *pixformat;
       TOPSTART_KEY: TOPSTART_DEFAULT,
       MAINONLY_KEY: MAINONLY_DEFAULT,
       SPOON_KEY: SPOON_DEFAULT,
-      GLYPHCOLOR_KEY: GLYPHCOLOR_DEFAULT};
+      GLYPHCOLOR_KEY: GLYPHCOLOR_DEFAULT,
+      TIPCOLOR_KEY: TIPCOLOR_DEFAULT,
+      DRIFT_KEY: DRIFT_DEFAULT,
+      CUSTOM1_GLYPH_KEY: CUSTOM1_GLYPH_DEFAULT,
+      CUSTOM1_TIP_KEY: CUSTOM1_TIP_DEFAULT,
+      CUSTOM2_GLYPH_KEY: CUSTOM2_GLYPH_DEFAULT,
+      CUSTOM2_TIP_KEY: CUSTOM2_TIP_DEFAULT,
+      CUSTOM3_GLYPH_KEY: CUSTOM3_GLYPH_DEFAULT,
+      CUSTOM3_TIP_KEY: CUSTOM3_TIP_DEFAULT};
    [defaults registerDefaults:defdefs];
    // Now load either those defaults, or the user's prior choice of preferences
    [self loadDefaults:nil];
@@ -156,17 +164,25 @@ NSOpenGLPixelFormat *pixformat;
    saverParams.cursorSpeed = [defaults floatForKey:CURSOR_KEY] / 100.0;
    saverParams.fogDensity = [defaults floatForKey:FOG_KEY] / 100.0;
    saverParams.minStartY = ([defaults boolForKey:TOPSTART_KEY] ? 1.0 : 0.0);
-   // Glyph color from the hex string (falls back to green if it's missing or invalid)
-   float gr, gg, gb;
+   // Glyph and tip colors from their hex strings (fall back to the classic green if missing or invalid)
+   float gr, gg, gb, tr, tg, tb;
    if (!RPParseHexColor([defaults stringForKey:GLYPHCOLOR_KEY], &gr, &gg, &gb)) {
       gr = 0.0; gg = 1.0; gb = 0.0;
+   }
+   if (!RPParseHexColor([defaults stringForKey:TIPCOLOR_KEY], &tr, &tg, &tb)) {
+      tr = 0.4; tg = 1.0; tb = 0.4;
    }
    saverParams.glyphR = gr;
    saverParams.glyphG = gg;
    saverParams.glyphB = gb;
+   saverParams.tipR = tr;
+   saverParams.tipG = tg;
+   saverParams.tipB = tb;
+   float drift = [defaults floatForKey:DRIFT_KEY];
+   saverParams.hueDrift = MAX(0.0f, MIN(45.0f, drift));
    // Recolor strips that are already running so the change shows straight away
    for (MatrixStrip *s in matrixStrips) {
-      [s setGlyphColorR:gr g:gg b:gb];
+      [s updateColorParams:&saverParams];
    }
    mainScreenOnly = ([defaults boolForKey:MAINONLY_KEY] ? 1 : 0);
    // Check for main screen only and this isn't main screen

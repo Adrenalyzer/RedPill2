@@ -59,6 +59,9 @@
    int framecounter;
    // Internal float used to animate the colors
    GLfloat startColor;
+   // Per-strip hue wander: phase (radians) and how fast it advances each frame
+   GLfloat huePhase;
+   GLfloat huePhaseStep;
     // Ints used to store the first and last visible cells that need to be drawn
     int firstVisibleCell;
     int lastVisibleCell;
@@ -67,8 +70,8 @@
 // Initialize with top left corner at given position
 - (instancetype) initWithCells:(int)cells x:(GLfloat)x y:(GLfloat)y z:(GLfloat)z params:(struct MatrixStripParams)params NS_DESIGNATED_INITIALIZER;
 
-// Change the base glyph color of a live strip (each component 0.0 to 1.0)
-- (void) setGlyphColorR:(GLfloat)r g:(GLfloat)g b:(GLfloat)b;
+// Copy the color settings (glyph color, tip color, hue drift) into a live strip
+- (void) updateColorParams:(const struct MatrixStripParams *)p;
 
 // Return my z position
 @property (NS_NONATOMIC_IOSONLY, readonly) GLfloat z;

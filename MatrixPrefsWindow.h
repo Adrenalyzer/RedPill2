@@ -36,6 +36,15 @@
 #define MAINONLY_KEY @"mainonly"
 #define SPOON_KEY @"spoon"
 #define GLYPHCOLOR_KEY @"glyphcolor"
+#define TIPCOLOR_KEY @"tipcolor"
+#define DRIFT_KEY @"huedrift"
+// Three user-storable presets, each a glyph color and a tip color
+#define CUSTOM1_GLYPH_KEY @"custom1glyph"
+#define CUSTOM1_TIP_KEY @"custom1tip"
+#define CUSTOM2_GLYPH_KEY @"custom2glyph"
+#define CUSTOM2_TIP_KEY @"custom2tip"
+#define CUSTOM3_GLYPH_KEY @"custom3glyph"
+#define CUSTOM3_TIP_KEY @"custom3tip"
 
 // Default values for same
 #define STRIPS_DEFAULT @"50"
@@ -50,6 +59,14 @@
 #define MAINONLY_DEFAULT @"NO"
 #define MAINONLY_DEFAULT_BOOLEAN FALSE
 #define GLYPHCOLOR_DEFAULT @"00FF00"
+#define TIPCOLOR_DEFAULT @"66FF66"
+#define DRIFT_DEFAULT @"12"
+#define CUSTOM1_GLYPH_DEFAULT @"FF9900"
+#define CUSTOM1_TIP_DEFAULT @"FFD966"
+#define CUSTOM2_GLYPH_DEFAULT @"00FFFF"
+#define CUSTOM2_TIP_DEFAULT @"99FFFF"
+#define CUSTOM3_GLYPH_DEFAULT @"9900FF"
+#define CUSTOM3_TIP_DEFAULT @"CC99FF"
 #define SPOON_DEFAULT @"NO"
 #define SPOON_DEFAULT_BOOLEAN FALSE
 
@@ -100,8 +117,8 @@ static inline BOOL RPParseHexColor(NSString *s, float *r, float *g, float *b)
    IBOutlet NSButton *mainonly;
    IBOutlet NSButton *spoon;
    IBOutlet NSTextField *version;
-   // Created in code (not in the nib)
-   NSTextField *hexField;
+   // The color panel is built in code (not in the nib); this is the window's content view
+   NSView *rpContent;
 }
 
 - (IBAction)cancel:(id)sender;
@@ -109,4 +126,10 @@ static inline BOOL RPParseHexColor(NSString *s, float *r, float *g, float *b)
 - (IBAction)about:(id)sender;
 - (IBAction)reset:(id)sender;
 - (IBAction)spoonclick:(id)sender;
+// Color panel actions (their controls are created in code)
+- (void)presetChanged:(id)sender;
+- (void)hexEdited:(id)sender;
+- (void)rgbSlid:(id)sender;
+- (void)driftSlid:(id)sender;
+- (void)saveCustom:(id)sender;
 @end

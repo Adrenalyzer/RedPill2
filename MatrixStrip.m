@@ -74,6 +74,9 @@ int c;
    cursorDrawing = TRUE;
    framecounter = 0;
    startColor = 0.2;
+   // Each strip wanders around the base hue at its own pace, starting from its own point in the cycle
+   huePhase = (random() % 6283) / 1000.0;
+   huePhaseStep = 0.004 + (random() % 80) / 10000.0;
    [self randomizeCursorGlyph];
    // Initialize cells
    for (c = 0; c<cells; c++) {
@@ -214,32 +217,83 @@ int i;
 }
 
 // Compute the new state of the color vertices
+// Shift a color's hue by the given number of degrees, keeping its saturation and brightness
+static void RotateHue(const GLfloat *in, GLfloat degrees, GLfloat *out)
+{
+   GLfloat r = in[0], g = in[1], b = in[2];
+   GLfloat mx = MAX(r, MAX(g, b));
+   GLfloat mn = MIN(r, MIN(g, b));
+   GLfloat d = mx - mn;
+   GLfloat s = (mx > 0.0) ? (d / mx) : 0.0;
+   GLfloat h = 0.0;
+   if (d > 0.0) {
+      if (mx == r) {
+         h = fmodf((g - b) / d, 6.0);
+      } else if (mx == g) {
+         h = (b - r) / d + 2.0;
+      } else {
+         h = (r - g) / d + 4.0;
+      }
+      h *= 60.0;
+   }
+   h = fmodf(h + degrees + 720.0, 360.0);
+   GLfloat c = mx * s;
+   GLfloat x = c * (1.0 - fabsf(fmodf(h / 60.0, 2.0) - 1.0));
+   GLfloat m = mx - c;
+   GLfloat rr, gg, bb;
+   if (h < 60.0)       { rr = c; gg = x; bb = 0; }
+   else if (h < 120.0) { rr = x; gg = c; bb = 0; }
+   else if (h < 180.0) { rr = 0; gg = c; bb = x; }
+   else if (h < 240.0) { rr = 0; gg = x; bb = c; }
+   else if (h < 300.0) { rr = x; gg = 0; bb = c; }
+   else                { rr = c; gg = 0; bb = x; }
+   out[0] = rr + m;
+   out[1] = gg + m;
+   out[2] = bb + m;
+}
+
+// The color of a glyph at a given brightness level (0.2 to 1.0): the base color, blending
+// toward the tip color over the brightest 30% of the range, then scaled by the level
+static void GlyphColorAt(GLfloat level, const GLfloat *base, const GLfloat *tip, GLfloat *out)
+{
+   GLfloat mix = (level > 0.7) ? ((level - 0.7) / 0.3) : 0.0;
+   if (mix > 1.0) {
+      mix = 1.0;
+   }
+   for (int k = 0; k < 3; k++) {
+      out[k] = MIN(1.0, (base[k] + (tip[k] - base[k]) * mix) * level);
+   }
+}
+
 - (void) computeColorVertices
 {
    int i,maxi,c,dom;
-   GLfloat g, gstep, cursorglow, w, br, bgr, bb, domBase, cr, cg, cb;
+   GLfloat g, gstep, cursorglow, domBase;
+   GLfloat base[3], tip[3], col[3];
 
-   c = 0; // To suppress spurious warning
    gstep = stripParams.colorCycleSpeed;
-   br = stripParams.glyphR;
-   bgr = stripParams.glyphG;
-   bb = stripParams.glyphB;
+   // Work out this strip's base and tip colors, with its own slowly wandering hue shift
+   GLfloat shift = stripParams.hueDrift * sinf(huePhase);
+   huePhase += huePhaseStep;
+   if (huePhase > 6.2832) {
+      huePhase -= 6.2832;
+   }
+   GLfloat rawBase[3] = {stripParams.glyphR, stripParams.glyphG, stripParams.glyphB};
+   GLfloat rawTip[3] = {stripParams.tipR, stripParams.tipG, stripParams.tipB};
+   RotateHue(rawBase, shift, base);
+   RotateHue(rawTip, shift, tip);
    // Which channel is strongest decides which one we compare against for the cursor glow
-   dom = (bgr >= br && bgr >= bb) ? 1 : ((br >= bb) ? 0 : 2);
-   domBase = (dom == 0) ? br : ((dom == 1) ? bgr : bb);
+   dom = (base[1] >= base[0] && base[1] >= base[2]) ? 1 : ((base[0] >= base[2]) ? 0 : 2);
+   domBase = base[dom];
    // First, run down the strip cycling colors to bright then back to dark
    g = startColor;
    maxi = cursorDrawing ? cursorPos : stripSize;
    for (i=0; i < maxi; i++) {
-      // Very bright cells are slightly whitened (this reproduces the original green look for 00FF00)
-      w = (g > 0.7) ? (g - 0.6) : 0.0;
-      cr = MIN(1.0, br * g + (1.0 - br) * w);
-      cg = MIN(1.0, bgr * g + (1.0 - bgr) * w);
-      cb = MIN(1.0, bb * g + (1.0 - bb) * w);
+      GlyphColorAt(g, base, tip, col);
       for (c = 0; c < 4; c++) {
-         colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : cr;
-         colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : cg;
-         colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : cb;
+         colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : col[0];
+         colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : col[1];
+         colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : col[2];
          // Transparent if cell is empty, otherwise opaque
          colorArray[16*i + 4*c + 3] = (cellState[i] == 0) ? 0.0 : 1.0;
       }
@@ -259,16 +313,13 @@ int i;
       maxi = cursorPos - 1;
       cursorglow = 0.8;
       for (i = maxi; i >= 0 && cursorglow > 0.2; i--) {
-      // If there's some cursor-imparted glow left, use it
-         if (colorArray[16*i + 4*c + dom] < cursorglow * domBase) {
-            w = (cursorglow > 0.7) ? (cursorglow - 0.6) : 0.0;
-            cr = MIN(1.0, br * cursorglow + (1.0 - br) * w);
-            cg = MIN(1.0, bgr * cursorglow + (1.0 - bgr) * w);
-            cb = MIN(1.0, bb * cursorglow + (1.0 - bb) * w);
+         // If this cell is dimmer than the cursor-imparted glow, brighten it
+         if (colorArray[16*i + dom] < cursorglow * domBase) {
+            GlyphColorAt(cursorglow, base, tip, col);
             for (c = 0; c < 4; c++) {
-               colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : cr;
-               colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : cg;
-               colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : cb;
+               colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : col[0];
+               colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : col[1];
+               colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : col[2];
                // Transparent if cell is empty, otherwise opaque
                colorArray[16*i + 4*c + 3] = (cellState[i] == 0) ? 0.0 : 1.0;
             }
@@ -278,12 +329,16 @@ int i;
    }
 }
 
-// Change the glyph color of a strip that is already running
-- (void) setGlyphColorR:(GLfloat)r g:(GLfloat)g b:(GLfloat)b
+// Copy new color settings into a strip that is already running
+- (void) updateColorParams:(const struct MatrixStripParams *)p
 {
-   stripParams.glyphR = r;
-   stripParams.glyphG = g;
-   stripParams.glyphB = b;
+   stripParams.glyphR = p->glyphR;
+   stripParams.glyphG = p->glyphG;
+   stripParams.glyphB = p->glyphB;
+   stripParams.tipR = p->tipR;
+   stripParams.tipG = p->tipG;
+   stripParams.tipB = p->tipB;
+   stripParams.hueDrift = p->hueDrift;
 }
 
 // It's a pity memset would require nasty assumptions about the internal format of floats...
