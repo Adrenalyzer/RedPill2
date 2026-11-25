@@ -21,6 +21,6 @@
 	<key>CFBundleVersion</key>
 	<string>2.3</string>
 	<key>NSPrincipalClass</key>
-	<string>MatrixView</string>
+	<string>OrangeMatrixView</string>
 </dict>
 </plist>

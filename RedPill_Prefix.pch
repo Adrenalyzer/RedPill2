@@ -2,6 +2,14 @@
 // Prefix header for all source files of the 'RedPill' target in the 'RedPill' project.
 //
 
+// Rename classes so this saver can coexist with the original RedPill.saver
+// (two bundles defining the same class names confuse macOS).
+#define MatrixView OrangeMatrixView
+#define MatrixOpenGLView OrangeMatrixOpenGLView
+#define MatrixPrefsWindow OrangeMatrixPrefsWindow
+#define MatrixStrip OrangeMatrixStrip
+#define MatrixTexture OrangeMatrixTexture
+
 #ifdef __OBJC__
     #import <Foundation/Foundation.h>
     #import <AppKit/AppKit.h>

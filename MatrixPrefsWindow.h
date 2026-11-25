@@ -52,7 +52,7 @@
 #define SPOON_DEFAULT_BOOLEAN FALSE
 
 // Notification to send the main object
-#define PREFS_NOTIFICATION @"PreferencesChanged"
+#define PREFS_NOTIFICATION @"RedPillOrangePreferencesChanged"
 
 @interface MatrixPrefsWindow :  NSWindowController
 {

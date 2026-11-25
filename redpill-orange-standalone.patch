@@ -1,0 +1,44 @@
+diff --git a/Info.plist b/Info.plist
+index 97f8d17..73942c3 100644
+--- a/Info.plist
++++ b/Info.plist
+@@ -21,6 +21,6 @@
+ 	<key>CFBundleVersion</key>
+ 	<string>2.3</string>
+ 	<key>NSPrincipalClass</key>
+-	<string>MatrixView</string>
++	<string>OrangeMatrixView</string>
+ </dict>
+ </plist>
+diff --git a/MatrixPrefsWindow.h b/MatrixPrefsWindow.h
+index 8f5b378..fcf560d 100644
+--- a/MatrixPrefsWindow.h
++++ b/MatrixPrefsWindow.h
+@@ -52,7 +52,7 @@
+ #define SPOON_DEFAULT_BOOLEAN FALSE
+ 
+ // Notification to send the main object
+-#define PREFS_NOTIFICATION @"PreferencesChanged"
++#define PREFS_NOTIFICATION @"RedPillOrangePreferencesChanged"
+ 
+ @interface MatrixPrefsWindow :  NSWindowController
+ {
+diff --git a/RedPill_Prefix.pch b/RedPill_Prefix.pch
+index f3f28dc..2178e54 100644
+--- a/RedPill_Prefix.pch
++++ b/RedPill_Prefix.pch
+@@ -2,6 +2,14 @@
+ // Prefix header for all source files of the 'RedPill' target in the 'RedPill' project.
+ //
+ 
++// Rename classes so this saver can coexist with the original RedPill.saver
++// (two bundles defining the same class names confuse macOS).
++#define MatrixView OrangeMatrixView
++#define MatrixOpenGLView OrangeMatrixOpenGLView
++#define MatrixPrefsWindow OrangeMatrixPrefsWindow
++#define MatrixStrip OrangeMatrixStrip
++#define MatrixTexture OrangeMatrixTexture
++
+ #ifdef __OBJC__
+     #import <Foundation/Foundation.h>
+     #import <AppKit/AppKit.h>
