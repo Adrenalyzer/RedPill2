@@ -44,6 +44,25 @@
    [fog setFloatValue:[defaults floatForKey:FOG_KEY]];
    [topstart setState:[defaults boolForKey:TOPSTART_KEY]];
    [mainonly setState:[defaults boolForKey:MAINONLY_KEY]];
+   // Add the glyph color box (built in code, once), in a strip added along the top of the window
+   if (hexField == nil) {
+      NSView *content = [w contentView];
+      CGFloat oldHeight = [content frame].size.height;
+      CGFloat oldWidth = [content frame].size.width;
+      [w setContentSize:NSMakeSize(oldWidth, oldHeight + 36.0)];
+      NSTextField *label = [[NSTextField alloc] initWithFrame:NSMakeRect(17, oldHeight + 9, 130, 17)];
+      [label setStringValue:@"Glyph color (hex):"];
+      [label setBezeled:NO];
+      [label setDrawsBackground:NO];
+      [label setEditable:NO];
+      [label setSelectable:NO];
+      hexField = [[NSTextField alloc] initWithFrame:NSMakeRect(150, oldHeight + 6, 90, 22)];
+      [hexField setPlaceholderString:GLYPHCOLOR_DEFAULT];
+      [content addSubview:label];
+      [content addSubview:hexField];
+   }
+   NSString *savedHex = [defaults stringForKey:GLYPHCOLOR_KEY];
+   [hexField setStringValue:(savedHex != nil ? savedHex : GLYPHCOLOR_DEFAULT)];
    // Find out version from bundle
    NSBundle *bundle = [NSBundle bundleForClass:[self class]];
    NSMutableString *versionString = [[NSMutableString alloc]
@@ -71,6 +90,7 @@
    [fog setFloatValue:[FOG_DEFAULT floatValue]];
    [topstart setState:TOPSTART_DEFAULT_BOOLEAN];
    [mainonly setState:MAINONLY_DEFAULT_BOOLEAN];
+   [hexField setStringValue:GLYPHCOLOR_DEFAULT];
 }
 
 // The About button takes them to a web site
@@ -98,8 +118,22 @@
       [NSApp endSheet:[self window]];
       return;
    }
+   // Check the glyph color first; if it's not valid hex, tell the user and leave the sheet open
+   float hr, hg, hb;
+   NSString *hexText = [[hexField stringValue] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+   if (!RPParseHexColor(hexText, &hr, &hg, &hb)) {
+      NSAlert *badHex = [[NSAlert alloc] init];
+      badHex.messageText = @"Invalid glyph color";
+      badHex.informativeText = @"Enter a hex color such as 00FF00 (green) or FF9900 (orange).";
+      [badHex runModal];
+      return;
+   }
+   if ([hexText hasPrefix:@"#"]) {
+      hexText = [hexText substringFromIndex:1];
+   }
    // Load defaults
    ScreenSaverDefaults *defaults = [ScreenSaverDefaults defaultsForModuleWithName:identifier];
+   [defaults setObject:[hexText uppercaseString] forKey:GLYPHCOLOR_KEY];
    // Set values based on new positions and states of UI elements
    [defaults setFloat:[strips floatValue] forKey:STRIPS_KEY];
    [defaults setFloat:[velocity floatValue] forKey:VELOCITY_KEY];

@@ -216,20 +216,30 @@ int i;
 // Compute the new state of the color vertices
 - (void) computeColorVertices
 {
-   int i,maxi,c;
-   GLfloat g, gstep, cursorglow;
+   int i,maxi,c,dom;
+   GLfloat g, gstep, cursorglow, w, br, bgr, bb, domBase, cr, cg, cb;
 
    c = 0; // To suppress spurious warning
    gstep = stripParams.colorCycleSpeed;
+   br = stripParams.glyphR;
+   bgr = stripParams.glyphG;
+   bb = stripParams.glyphB;
+   // Which channel is strongest decides which one we compare against for the cursor glow
+   dom = (bgr >= br && bgr >= bb) ? 1 : ((br >= bb) ? 0 : 2);
+   domBase = (dom == 0) ? br : ((dom == 1) ? bgr : bb);
    // First, run down the strip cycling colors to bright then back to dark
    g = startColor;
    maxi = cursorDrawing ? cursorPos : stripSize;
    for (i=0; i < maxi; i++) {
+      // Very bright cells are slightly whitened (this reproduces the original green look for 00FF00)
+      w = (g > 0.7) ? (g - 0.6) : 0.0;
+      cr = MIN(1.0, br * g + (1.0 - br) * w);
+      cg = MIN(1.0, bgr * g + (1.0 - bgr) * w);
+      cb = MIN(1.0, bb * g + (1.0 - bb) * w);
       for (c = 0; c < 4; c++) {
-         // Orange (sampled from reference: 254,153,29 at full brightness)
-         colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : g;
-         colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : g * 0.60;
-         colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : g * 0.11;
+         colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : cr;
+         colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : cg;
+         colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : cb;
          // Transparent if cell is empty, otherwise opaque
          colorArray[16*i + 4*c + 3] = (cellState[i] == 0) ? 0.0 : 1.0;
       }
@@ -250,12 +260,15 @@ int i;
       cursorglow = 0.8;
       for (i = maxi; i >= 0 && cursorglow > 0.2; i--) {
       // If there's some cursor-imparted glow left, use it
-         if (colorArray[16*i + 4*c + 0] < cursorglow) {
+         if (colorArray[16*i + 4*c + dom] < cursorglow * domBase) {
+            w = (cursorglow > 0.7) ? (cursorglow - 0.6) : 0.0;
+            cr = MIN(1.0, br * cursorglow + (1.0 - br) * w);
+            cg = MIN(1.0, bgr * cursorglow + (1.0 - bgr) * w);
+            cb = MIN(1.0, bb * cursorglow + (1.0 - bb) * w);
             for (c = 0; c < 4; c++) {
-               // Orange, same ratios as above
-               colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : cursorglow;
-               colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : cursorglow * 0.60;
-               colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : cursorglow * 0.11;
+               colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : cr;
+               colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : cg;
+               colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : cb;
                // Transparent if cell is empty, otherwise opaque
                colorArray[16*i + 4*c + 3] = (cellState[i] == 0) ? 0.0 : 1.0;
             }
@@ -263,6 +276,14 @@ int i;
          cursorglow -= gstep;
       }
    }
+}
+
+// Change the glyph color of a strip that is already running
+- (void) setGlyphColorR:(GLfloat)r g:(GLfloat)g b:(GLfloat)b
+{
+   stripParams.glyphR = r;
+   stripParams.glyphG = g;
+   stripParams.glyphB = b;
 }
 
 // It's a pity memset would require nasty assumptions about the internal format of floats...

@@ -1,0 +1,263 @@
+diff --git a/MatrixPrefsWindow.h b/MatrixPrefsWindow.h
+index fcf560d..38d6619 100644
+--- a/MatrixPrefsWindow.h
++++ b/MatrixPrefsWindow.h
+@@ -35,6 +35,7 @@
+ #define TOPSTART_KEY @"topstart"
+ #define MAINONLY_KEY @"mainonly"
+ #define SPOON_KEY @"spoon"
++#define GLYPHCOLOR_KEY @"glyphcolor"
+ 
+ // Default values for same
+ #define STRIPS_DEFAULT @"50"
+@@ -48,12 +49,44 @@
+ #define TOPSTART_DEFAULT_BOOLEAN TRUE
+ #define MAINONLY_DEFAULT @"NO"
+ #define MAINONLY_DEFAULT_BOOLEAN FALSE
++#define GLYPHCOLOR_DEFAULT @"00FF00"
+ #define SPOON_DEFAULT @"NO"
+ #define SPOON_DEFAULT_BOOLEAN FALSE
+ 
+ // Notification to send the main object
+ #define PREFS_NOTIFICATION @"RedPillOrangePreferencesChanged"
+ 
++// Parse a hex color like "FF9900", "#ff9900" or "f90" into 0.0-1.0 components. Returns NO if invalid.
++static inline BOOL RPParseHexColor(NSString *s, float *r, float *g, float *b)
++{
++   if (s == nil) {
++      return NO;
++   }
++   s = [s stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
++   if ([s hasPrefix:@"#"]) {
++      s = [s substringFromIndex:1];
++   }
++   NSCharacterSet *hexDigits = [NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"];
++   if ([[s stringByTrimmingCharactersInSet:hexDigits] length] != 0) {
++      return NO;
++   }
++   if ([s length] == 3) {
++      unichar c0 = [s characterAtIndex:0], c1 = [s characterAtIndex:1], c2 = [s characterAtIndex:2];
++      s = [NSString stringWithFormat:@"%C%C%C%C%C%C", c0, c0, c1, c1, c2, c2];
++   }
++   if ([s length] != 6) {
++      return NO;
++   }
++   unsigned int v = 0;
++   if (![[NSScanner scannerWithString:s] scanHexInt:&v]) {
++      return NO;
++   }
++   *r = ((v >> 16) & 0xFF) / 255.0f;
++   *g = ((v >> 8) & 0xFF) / 255.0f;
++   *b = (v & 0xFF) / 255.0f;
++   return YES;
++}
++
+ @interface MatrixPrefsWindow :  NSWindowController
+ {
+    IBOutlet NSSlider *strips;
+@@ -67,6 +100,8 @@
+    IBOutlet NSButton *mainonly;
+    IBOutlet NSButton *spoon;
+    IBOutlet NSTextField *version;
++   // Created in code (not in the nib)
++   NSTextField *hexField;
+ }
+ 
+ - (IBAction)cancel:(id)sender;
+diff --git a/MatrixPrefsWindow.m b/MatrixPrefsWindow.m
+index ddad082..86bd3c4 100644
+--- a/MatrixPrefsWindow.m
++++ b/MatrixPrefsWindow.m
+@@ -44,6 +44,25 @@
+    [fog setFloatValue:[defaults floatForKey:FOG_KEY]];
+    [topstart setState:[defaults boolForKey:TOPSTART_KEY]];
+    [mainonly setState:[defaults boolForKey:MAINONLY_KEY]];
++   // Add the glyph color box (built in code, once), in a strip added along the top of the window
++   if (hexField == nil) {
++      NSView *content = [w contentView];
++      CGFloat oldHeight = [content frame].size.height;
++      CGFloat oldWidth = [content frame].size.width;
++      [w setContentSize:NSMakeSize(oldWidth, oldHeight + 36.0)];
++      NSTextField *label = [[NSTextField alloc] initWithFrame:NSMakeRect(17, oldHeight + 9, 130, 17)];
++      [label setStringValue:@"Glyph color (hex):"];
++      [label setBezeled:NO];
++      [label setDrawsBackground:NO];
++      [label setEditable:NO];
++      [label setSelectable:NO];
++      hexField = [[NSTextField alloc] initWithFrame:NSMakeRect(150, oldHeight + 6, 90, 22)];
++      [hexField setPlaceholderString:GLYPHCOLOR_DEFAULT];
++      [content addSubview:label];
++      [content addSubview:hexField];
++   }
++   NSString *savedHex = [defaults stringForKey:GLYPHCOLOR_KEY];
++   [hexField setStringValue:(savedHex != nil ? savedHex : GLYPHCOLOR_DEFAULT)];
+    // Find out version from bundle
+    NSBundle *bundle = [NSBundle bundleForClass:[self class]];
+    NSMutableString *versionString = [[NSMutableString alloc]
+@@ -71,6 +90,7 @@
+    [fog setFloatValue:[FOG_DEFAULT floatValue]];
+    [topstart setState:TOPSTART_DEFAULT_BOOLEAN];
+    [mainonly setState:MAINONLY_DEFAULT_BOOLEAN];
++   [hexField setStringValue:GLYPHCOLOR_DEFAULT];
+ }
+ 
+ // The About button takes them to a web site
+@@ -98,8 +118,22 @@
+       [NSApp endSheet:[self window]];
+       return;
+    }
++   // Check the glyph color first; if it's not valid hex, tell the user and leave the sheet open
++   float hr, hg, hb;
++   NSString *hexText = [[hexField stringValue] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
++   if (!RPParseHexColor(hexText, &hr, &hg, &hb)) {
++      NSAlert *badHex = [[NSAlert alloc] init];
++      badHex.messageText = @"Invalid glyph color";
++      badHex.informativeText = @"Enter a hex color such as 00FF00 (green) or FF9900 (orange).";
++      [badHex runModal];
++      return;
++   }
++   if ([hexText hasPrefix:@"#"]) {
++      hexText = [hexText substringFromIndex:1];
++   }
+    // Load defaults
+    ScreenSaverDefaults *defaults = [ScreenSaverDefaults defaultsForModuleWithName:identifier];
++   [defaults setObject:[hexText uppercaseString] forKey:GLYPHCOLOR_KEY];
+    // Set values based on new positions and states of UI elements
+    [defaults setFloat:[strips floatValue] forKey:STRIPS_KEY];
+    [defaults setFloat:[velocity floatValue] forKey:VELOCITY_KEY];
+diff --git a/MatrixStrip.h b/MatrixStrip.h
+index bdbca93..94a46be 100644
+--- a/MatrixStrip.h
++++ b/MatrixStrip.h
+@@ -67,6 +67,9 @@
+ // Initialize with top left corner at given position
+ - (instancetype) initWithCells:(int)cells x:(GLfloat)x y:(GLfloat)y z:(GLfloat)z params:(struct MatrixStripParams)params NS_DESIGNATED_INITIALIZER;
+ 
++// Change the base glyph color of a live strip (each component 0.0 to 1.0)
++- (void) setGlyphColorR:(GLfloat)r g:(GLfloat)g b:(GLfloat)b;
++
+ // Return my z position
+ @property (NS_NONATOMIC_IOSONLY, readonly) GLfloat z;
+ 
+diff --git a/MatrixStrip.m b/MatrixStrip.m
+index d3c62b1..f9476a2 100644
+--- a/MatrixStrip.m
++++ b/MatrixStrip.m
+@@ -216,20 +216,30 @@ int i;
+ // Compute the new state of the color vertices
+ - (void) computeColorVertices
+ {
+-   int i,maxi,c;
+-   GLfloat g, gstep, cursorglow;
++   int i,maxi,c,dom;
++   GLfloat g, gstep, cursorglow, w, br, bgr, bb, domBase, cr, cg, cb;
+ 
+    c = 0; // To suppress spurious warning
+    gstep = stripParams.colorCycleSpeed;
++   br = stripParams.glyphR;
++   bgr = stripParams.glyphG;
++   bb = stripParams.glyphB;
++   // Which channel is strongest decides which one we compare against for the cursor glow
++   dom = (bgr >= br && bgr >= bb) ? 1 : ((br >= bb) ? 0 : 2);
++   domBase = (dom == 0) ? br : ((dom == 1) ? bgr : bb);
+    // First, run down the strip cycling colors to bright then back to dark
+    g = startColor;
+    maxi = cursorDrawing ? cursorPos : stripSize;
+    for (i=0; i < maxi; i++) {
++      // Very bright cells are slightly whitened (this reproduces the original green look for 00FF00)
++      w = (g > 0.7) ? (g - 0.6) : 0.0;
++      cr = MIN(1.0, br * g + (1.0 - br) * w);
++      cg = MIN(1.0, bgr * g + (1.0 - bgr) * w);
++      cb = MIN(1.0, bb * g + (1.0 - bb) * w);
+       for (c = 0; c < 4; c++) {
+-         // Orange (sampled from reference: 254,153,29 at full brightness)
+-         colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : g;
+-         colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : g * 0.60;
+-         colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : g * 0.11;
++         colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : cr;
++         colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : cg;
++         colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : cb;
+          // Transparent if cell is empty, otherwise opaque
+          colorArray[16*i + 4*c + 3] = (cellState[i] == 0) ? 0.0 : 1.0;
+       }
+@@ -250,12 +260,15 @@ int i;
+       cursorglow = 0.8;
+       for (i = maxi; i >= 0 && cursorglow > 0.2; i--) {
+       // If there's some cursor-imparted glow left, use it
+-         if (colorArray[16*i + 4*c + 0] < cursorglow) {
++         if (colorArray[16*i + 4*c + dom] < cursorglow * domBase) {
++            w = (cursorglow > 0.7) ? (cursorglow - 0.6) : 0.0;
++            cr = MIN(1.0, br * cursorglow + (1.0 - br) * w);
++            cg = MIN(1.0, bgr * cursorglow + (1.0 - bgr) * w);
++            cb = MIN(1.0, bb * cursorglow + (1.0 - bb) * w);
+             for (c = 0; c < 4; c++) {
+-               // Orange, same ratios as above
+-               colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : cursorglow;
+-               colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : cursorglow * 0.60;
+-               colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : cursorglow * 0.11;
++               colorArray[16*i + 4*c + 0] = (cellState[i] == 0) ? 0.0 : cr;
++               colorArray[16*i + 4*c + 1] = (cellState[i] == 0) ? 0.0 : cg;
++               colorArray[16*i + 4*c + 2] = (cellState[i] == 0) ? 0.0 : cb;
+                // Transparent if cell is empty, otherwise opaque
+                colorArray[16*i + 4*c + 3] = (cellState[i] == 0) ? 0.0 : 1.0;
+             }
+@@ -265,6 +278,14 @@ int i;
+    }
+ }
+ 
++// Change the glyph color of a strip that is already running
++- (void) setGlyphColorR:(GLfloat)r g:(GLfloat)g b:(GLfloat)b
++{
++   stripParams.glyphR = r;
++   stripParams.glyphG = g;
++   stripParams.glyphB = b;
++}
++
+ // It's a pity memset would require nasty assumptions about the internal format of floats...
+ - (void) initializeTextureVertices:(int)maxcell
+ {
+diff --git a/MatrixStripParams.h b/MatrixStripParams.h
+index 0a3a6df..912ff50 100644
+--- a/MatrixStripParams.h
++++ b/MatrixStripParams.h
+@@ -40,4 +40,7 @@ struct MatrixStripParams {
+    GLfloat fogDensity; // 0 to 0.2, or you won't see anything
+    GLfloat colorCycleSpeed; // color cycling speed
+    GLfloat colorFallSpeed; // rate at which cycling colors fall
++   GLfloat glyphR; // base glyph color, each 0.0 to 1.0 (default is green: 0, 1, 0)
++   GLfloat glyphG;
++   GLfloat glyphB;
+ };
+diff --git a/MatrixView.m b/MatrixView.m
+index a4efcf3..eda877d 100644
+--- a/MatrixView.m
++++ b/MatrixView.m
+@@ -80,7 +80,8 @@ NSOpenGLPixelFormat *pixformat;
+       FOG_KEY: FOG_DEFAULT,
+       TOPSTART_KEY: TOPSTART_DEFAULT,
+       MAINONLY_KEY: MAINONLY_DEFAULT,
+-      SPOON_KEY: SPOON_DEFAULT};
++      SPOON_KEY: SPOON_DEFAULT,
++      GLYPHCOLOR_KEY: GLYPHCOLOR_DEFAULT};
+    [defaults registerDefaults:defdefs];
+    // Now load either those defaults, or the user's prior choice of preferences
+    [self loadDefaults:nil];
+@@ -155,6 +156,18 @@ NSOpenGLPixelFormat *pixformat;
+    saverParams.cursorSpeed = [defaults floatForKey:CURSOR_KEY] / 100.0;
+    saverParams.fogDensity = [defaults floatForKey:FOG_KEY] / 100.0;
+    saverParams.minStartY = ([defaults boolForKey:TOPSTART_KEY] ? 1.0 : 0.0);
++   // Glyph color from the hex string (falls back to green if it's missing or invalid)
++   float gr, gg, gb;
++   if (!RPParseHexColor([defaults stringForKey:GLYPHCOLOR_KEY], &gr, &gg, &gb)) {
++      gr = 0.0; gg = 1.0; gb = 0.0;
++   }
++   saverParams.glyphR = gr;
++   saverParams.glyphG = gg;
++   saverParams.glyphB = gb;
++   // Recolor strips that are already running so the change shows straight away
++   for (MatrixStrip *s in matrixStrips) {
++      [s setGlyphColorR:gr g:gg b:gb];
++   }
+    mainScreenOnly = ([defaults boolForKey:MAINONLY_KEY] ? 1 : 0);
+    // Check for main screen only and this isn't main screen
+    if (mainScreenOnly && !isMainScreen) {

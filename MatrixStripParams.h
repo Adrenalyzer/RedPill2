@@ -40,4 +40,7 @@ struct MatrixStripParams {
    GLfloat fogDensity; // 0 to 0.2, or you won't see anything
    GLfloat colorCycleSpeed; // color cycling speed
    GLfloat colorFallSpeed; // rate at which cycling colors fall
+   GLfloat glyphR; // base glyph color, each 0.0 to 1.0 (default is green: 0, 1, 0)
+   GLfloat glyphG;
+   GLfloat glyphB;
 };

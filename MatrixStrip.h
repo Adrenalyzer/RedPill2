@@ -67,6 +67,9 @@
 // Initialize with top left corner at given position
 - (instancetype) initWithCells:(int)cells x:(GLfloat)x y:(GLfloat)y z:(GLfloat)z params:(struct MatrixStripParams)params NS_DESIGNATED_INITIALIZER;
 
+// Change the base glyph color of a live strip (each component 0.0 to 1.0)
+- (void) setGlyphColorR:(GLfloat)r g:(GLfloat)g b:(GLfloat)b;
+
 // Return my z position
 @property (NS_NONATOMIC_IOSONLY, readonly) GLfloat z;
 

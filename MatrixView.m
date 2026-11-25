@@ -80,7 +80,8 @@ NSOpenGLPixelFormat *pixformat;
       FOG_KEY: FOG_DEFAULT,
       TOPSTART_KEY: TOPSTART_DEFAULT,
       MAINONLY_KEY: MAINONLY_DEFAULT,
-      SPOON_KEY: SPOON_DEFAULT};
+      SPOON_KEY: SPOON_DEFAULT,
+      GLYPHCOLOR_KEY: GLYPHCOLOR_DEFAULT};
    [defaults registerDefaults:defdefs];
    // Now load either those defaults, or the user's prior choice of preferences
    [self loadDefaults:nil];
@@ -155,6 +156,18 @@ NSOpenGLPixelFormat *pixformat;
    saverParams.cursorSpeed = [defaults floatForKey:CURSOR_KEY] / 100.0;
    saverParams.fogDensity = [defaults floatForKey:FOG_KEY] / 100.0;
    saverParams.minStartY = ([defaults boolForKey:TOPSTART_KEY] ? 1.0 : 0.0);
+   // Glyph color from the hex string (falls back to green if it's missing or invalid)
+   float gr, gg, gb;
+   if (!RPParseHexColor([defaults stringForKey:GLYPHCOLOR_KEY], &gr, &gg, &gb)) {
+      gr = 0.0; gg = 1.0; gb = 0.0;
+   }
+   saverParams.glyphR = gr;
+   saverParams.glyphG = gg;
+   saverParams.glyphB = gb;
+   // Recolor strips that are already running so the change shows straight away
+   for (MatrixStrip *s in matrixStrips) {
+      [s setGlyphColorR:gr g:gg b:gb];
+   }
    mainScreenOnly = ([defaults boolForKey:MAINONLY_KEY] ? 1 : 0);
    // Check for main screen only and this isn't main screen
    if (mainScreenOnly && !isMainScreen) {

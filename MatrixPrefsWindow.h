@@ -35,6 +35,7 @@
 #define TOPSTART_KEY @"topstart"
 #define MAINONLY_KEY @"mainonly"
 #define SPOON_KEY @"spoon"
+#define GLYPHCOLOR_KEY @"glyphcolor"
 
 // Default values for same
 #define STRIPS_DEFAULT @"50"
@@ -48,11 +49,43 @@
 #define TOPSTART_DEFAULT_BOOLEAN TRUE
 #define MAINONLY_DEFAULT @"NO"
 #define MAINONLY_DEFAULT_BOOLEAN FALSE
+#define GLYPHCOLOR_DEFAULT @"00FF00"
 #define SPOON_DEFAULT @"NO"
 #define SPOON_DEFAULT_BOOLEAN FALSE
 
 // Notification to send the main object
 #define PREFS_NOTIFICATION @"RedPillOrangePreferencesChanged"
+
+// Parse a hex color like "FF9900", "#ff9900" or "f90" into 0.0-1.0 components. Returns NO if invalid.
+static inline BOOL RPParseHexColor(NSString *s, float *r, float *g, float *b)
+{
+   if (s == nil) {
+      return NO;
+   }
+   s = [s stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+   if ([s hasPrefix:@"#"]) {
+      s = [s substringFromIndex:1];
+   }
+   NSCharacterSet *hexDigits = [NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"];
+   if ([[s stringByTrimmingCharactersInSet:hexDigits] length] != 0) {
+      return NO;
+   }
+   if ([s length] == 3) {
+      unichar c0 = [s characterAtIndex:0], c1 = [s characterAtIndex:1], c2 = [s characterAtIndex:2];
+      s = [NSString stringWithFormat:@"%C%C%C%C%C%C", c0, c0, c1, c1, c2, c2];
+   }
+   if ([s length] != 6) {
+      return NO;
+   }
+   unsigned int v = 0;
+   if (![[NSScanner scannerWithString:s] scanHexInt:&v]) {
+      return NO;
+   }
+   *r = ((v >> 16) & 0xFF) / 255.0f;
+   *g = ((v >> 8) & 0xFF) / 255.0f;
+   *b = (v & 0xFF) / 255.0f;
+   return YES;
+}
 
 @interface MatrixPrefsWindow :  NSWindowController
 {
@@ -67,6 +100,8 @@
    IBOutlet NSButton *mainonly;
    IBOutlet NSButton *spoon;
    IBOutlet NSTextField *version;
+   // Created in code (not in the nib)
+   NSTextField *hexField;
 }
 
 - (IBAction)cancel:(id)sender;
